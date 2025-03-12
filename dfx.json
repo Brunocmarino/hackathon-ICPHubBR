@@ -1,0 +1,36 @@
+{
+  "canisters": {
+    "internet_identity": {
+    "type": "custom",
+    "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+    "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
+    "shrink": false,
+    "remote": {
+      "id": {
+        "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"               
+      }}
+    },
+    "geradorlp_backend": {
+      "main": "src/geradorlp_backend/main.mo",
+      "type": "motoko"
+    },
+    "geradorlp_frontend": {
+      "dependencies": [
+        "geradorlp_backend"
+      ],
+      "source": [
+        "src/geradorlp_frontend/dist"
+      ],
+      "type": "assets",
+      "workspace": "geradorlp_frontend"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}
