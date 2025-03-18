@@ -3,7 +3,7 @@
     "node": ">=16.0.0",
     "npm": ">=7.0.0"
   },
-  "name": "geradorlp",
+  "name": "voting-dapp",
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "prebuild": "npm run prebuild --workspaces --if-present",
@@ -13,14 +13,12 @@
   },
   "type": "module",
   "workspaces": [
-    "src/geradorlp_frontend"
+    "src/voting-dapp-frontend"
   ],
   "dependencies": {
     "@dfinity/agent": "^2.3.0",
-    "@dfinity/assets": "^2.3.0",
     "@dfinity/auth-client": "^2.3.0",
-    "@dfinity/identity": "^2.3.0",
-    "react-helmet": "^6.1.0",
-    "react-router-dom": "^6.30.0"
+    "@dfinity/principal": "^2.3.0",
+    "react-router-dom": "^7.3.0"
   }
 }

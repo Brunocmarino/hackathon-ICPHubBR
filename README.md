@@ -1,131 +1,156 @@
-# Gerador de Landing Pages On-Chain - `geradorlp`
+# Sistemas de Votação Web3 com Internet Computer Platform (ICP)
 
-Bem-vindo ao projeto `geradorlp`, um DApp desenvolvido na **blockchain ICP** utilizando a linguagem **Motoko**. O principal objetivo deste projeto é permitir a criação de **Landing Pages 100% on-chain**, garantindo segurança, transparência e descentralização no armazenamento e publicação de páginas.
+## Visão Geral
 
-As landing pages são amplamente utilizadas em estratégias de marketing e possuem diversas finalidades, como:
+Este projeto implementa uma solução descentralizada de votação no Internet Computer, permitindo que organizações escolham entre diferentes métodos de votação, incluindo o sistema anônimo baseado em árvores Merkle. A plataforma permite que qualquer organização crie propostas, selecione o método de votação mais adequado às suas necessidades, e permita que seus membros votem de forma segura e transparente.
 
-- 🌆 **Divulgação de promoções de produtos** (especialmente no e-commerce);
-- 💼 **Apresentação de serviços** e portfólios;
-- 🗕 **Promoção e inscrição em eventos, webinars e workshops**;
-- 🎓 **Divulgação e inscrição em cursos online**;
-- ⚡ **Outras campanhas e estratégias digitais**.
+## Tecnologias Utilizadas
 
----
+- **Backend**: Motoko (linguagem nativa do Internet Computer)
+- **Frontend**: React com TypeScript e Vite
+- **Autenticação**: Internet Identity
+- **Armazenamento**: Canisters no Internet Computer
+- **Criptografia**: Implementação personalizada de árvores Merkle
 
-## 🚀 **Como o DApp Funciona**
+## Recursos Principais
 
-O `geradorlp` foi projetado para ser intuitivo e eficiente, permitindo que qualquer usuário crie, edite e publique suas próprias landing pages com facilidade.
+### 1. Sistemas de Votação Flexíveis
 
-- ✅ **Criação Simples**: Escolha entre templates pré-definidos, adicione seus textos e imagens, e personalize sua página conforme a necessidade.
-- ✅ **Publicação On-Chain**: Após a criação, a landing page poderá ser publicada, tornando-se acessível para qualquer pessoa via blockchain ICP.
-- ✅ **Gerenciamento de Múltiplas Páginas**: Cada usuário pode criar e gerenciar uma ou várias landing pages de forma independente.
+A plataforma oferece três tipos de sistemas de votação:
 
----
+- **Votação Padrão**: Sistema tradicional onde os votos são registrados publicamente.
+- **Votação Anônima com Merkle Tree**: Método que garante o anonimato dos votantes enquanto permite verificação.
+- **Votação Ponderada por Tokens**: Sistema onde o peso do voto é determinado pela quantidade de tokens que o votante possui.
 
-## 🔐 **Funcionalidades Desenvolvidas**
+### 2. Votação Anônima com Merkle Tree
 
-- **Conexão Segura com Internet Identity**: Os usuários podem se conectar de forma segura utilizando o sistema de identidade descentralizado da ICP.
-- **Criação e Edição Dinâmica**: É possível criar e personalizar landing pages com base em templates pré-definidos, ajustando textos e imagens conforme necessário.
-- **Publicação Imediata**: Com apenas alguns cliques, a página é publicada e disponibilizada na blockchain, garantindo acessibilidade global.
-- **Gerenciamento Simples**: Usuários têm liberdade para criar, editar ou excluir suas páginas, conforme suas estratégias de marketing evoluem.
+A inovação principal deste projeto é o sistema de votação anônimo baseado em árvores Merkle:
 
----
+- **Anonimato Garantido**: Os votos são armazenados de forma que não podem ser rastreados até o votante.
+- **Verificabilidade Criptográfica**: Cada votante recebe uma prova Merkle que confirma que seu voto foi contabilizado.
+- **Segurança Web3**: Utiliza criptografia avançada dentro do ambiente seguro do Internet Computer.
 
-## ⚙️ **Como Utilizar**
+## Instruções de Instalação e Execução
 
-1. **Conecte-se** ao DApp utilizando sua identidade via Internet Identity.
-2. **Escolha um template** e personalize-o com seus textos e imagens.
-3. **Publique sua landing page** diretamente na blockchain ICP.
-4. **Compartilhe o link** da sua landing page com o seu público.
+### Pré-requisitos
 
----
+1. **DFINITY Canister SDK (DFX)**
+   ```bash
+   sh -ci "$(curl -fsSL https://internetcomputer.org/install.sh)"
+   ```
 
-Com o `geradorlp`, a criação de landing pages se torna mais acessível, segura e alinhada com o futuro da web descentralizada. 🚀
+2. **Node.js (v16 ou superior)**
+   - Download: [nodejs.org](https://nodejs.org/)
+   - Verifique a instalação: `node --version`
 
----
+3. **Git**
+   - Download: [git-scm.com](https://git-scm.com/downloads)
 
-## ⚙️ **Instalação do Projeto**
+### Instalação
 
-Abaixo irei apresentar duas formas de instalar o projeto para rodar locamente. Uma mais pratica e outra mais detalhada. 
+1. **Clone o repositório**
+   ```bash
+   git clone https://github.com/seu-usuario/voting-dapp.git
+   cd voting-dapp
+   ```
 
-Para começar será necessário clonar o projeto (github). Lembre-se que se estiver utilizando o Sistema Operacional Windows é necessário utilizar o WSL.
+2. **Instale as dependências do projeto**
+   ```bash
+   npm install
+   ```
 
-Para quem preferir uma instalação mais rapida, após concluir o clone do projeto basta entrar no diretorio do projeto:
+3. **Inicie a réplica local do Internet Computer**
+   ```bash
+   dfx start --background
+   ```
 
-```bash
-cd geradorlp
+4. **Implante os canisters**
+   ```bash
+   dfx deploy
+   ```
+   
+   Este comando irá:
+   - Criar os canisters necessários
+   - Compilar os contratos Motoko
+   - Gerar as interfaces de comunicação
+   - Implantar o backend e o frontend
+
+
+
+### Estrutura do Projeto
+
+```
+voting-dapp/
+├── src/
+│   ├── voting-dapp-backend/     # Código Motoko para o backend
+│   │   ├── main.mo              # Canister principal
+│   │   ├── MerkleVoting.mo      # Implementação do sistema Merkle
+│   │   └── types.mo             # Definições de tipos
+│   │
+│   └── voting-dapp-frontend/    # Código do frontend React/TypeScript
+│       ├── src/
+│       │   ├── components/      # Componentes UI reutilizáveis
+│       │   ├── pages/           # Páginas da aplicação
+│       │   ├── services/        # Serviços de conexão com o backend
+│       │   ├── styles/          # Arquivos de estilo
+│       │   ├── App.tsx          # Componente raiz
+│       │   └── main.tsx         # Ponto de entrada
+│       │
+│       ├── package.json         # Dependências do frontend
+│       └── vite.config.ts       # Configuração do Vite
+│
+├── dfx.json                     # Configuração dos canisters
+└── package.json                 # Scripts e dependências do projeto
 ```
 
-e em seguida instalar as dependencias utilizando o comando abaixo: 
+## Como Usar
 
-```bash
-npm install
-```
-Depois disso pode ir diretamente para o passo `Rodando o projeto localmente`
+### Para Organizações
 
-Para quem deseja realizar a instalação manual e conhecer as principais dependências do projeto, siga as instruções abaixo. Execute os comandos indicados para instalar todas as dependências necessárias (lembre-se que se estiver utilizando o Sistema Operacional Windows é necessário utilizar o WSL):
+1. **Acesse a plataforma** e faça login usando Internet Identity
+2. **Registre-se como organização** na página "Registrar Organização"
+3. **Crie uma nova proposta** através da interface "Criar Proposta"
+4. **Selecione o método de votação** desejado (Padrão, Merkle Tree ou Ponderado por Tokens)
+5. **Defina o período de votação** (duração em horas)
+6. **Acompanhe os resultados** em tempo real na página da proposta
 
-```bash
-cd geradorlp
-npm install --save @dfinity/auth-client
-npm install react-router-dom
-npm install react-helmet
-npm install @dfinity/identity
-npm install @dfinity/agent
-npm install @dfinity/assets
-```
+### Para Votantes
 
-Agora realize a instalação do Tailwind (ele será utilizado para estilização do Dapp). Dentro do diretório frontend execute os comandos abaixo:
-```bash
-cd src/geradorlp_frontend
-npm install -D tailwindcss@3.4.14 postcss autoprefixer
-npx tailwindcss init -p
-```
+1. **Acesse a plataforma** e faça login usando Internet Identity
+2. **Navegue pela lista de propostas** na página inicial
+3. **Selecione uma proposta ativa** para participar
+4. **Vote** escolhendo entre as opções disponíveis (Sim, Não, Abster-se)
+5. **Receba uma prova criptográfica** se a votação for do tipo Merkle Tree
+6. **Verifique seu voto** na seção "Meus Votos"
 
-Volte para o diretorio raiz do projeto e abra o código fonte no VS Code:
+## Solução de Problemas
 
-```bash
-cd ../..
-code .
-```
+### Problemas Comuns
 
-Com o VS Code aberto, localize o arquivo `tailwind.config.js`. Ele se encontra no diretorio src/geradorlp_frontend.
-Adicione a linha  content: `[ "./src/**/*.{js,jsx,ts,tsx}", ],`  
+1. **Erro ao iniciar DFX**
+   - Verifique se não há outra instância rodando: `dfx stop`
+   - Tente novamente com: `dfx start --clean`
 
-O código do arquivo deverá ficar igual ao ilustrado abaixo:
+2. **Erro ao compilar contratos Motoko**
+   - Verifique a sintaxe e versão do compilador
+   - Execute `dfx cache delete` e tente implantar novamente
 
-```bash
-/** @type {import('tailwindcss').Config} */
-export default {
-  content: [ "./src/**/*.{js,jsx,ts,tsx}", ], 
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}
-```
+3. **Frontend não consegue conectar ao backend**
+   - Verifique se os canisters estão em execução
+   - Confirme se as declarações foram geradas: `dfx generate`
 
-Depois disso pode ir para o passo `Rodando o projeto localmente`
+4. **Erro de autenticação**
+   - Limpe os cookies do navegador
+   - Tente usar outro navegador ou modo anônimo
 
-## Rodando o projeto localmente
+### Suporte
 
-Para rodar o projeto localmente execute os seguintes comandos:
+Se precisar de ajuda adicional:
+- Verifique a [documentação do Internet Computer](https://internetcomputer.org/docs/)
+- Acesse [forum.dfinity.org](https://forum.dfinity.org/) para suporte da comunidade
 
-```bash
-dfx start --background
+## Conclusão
 
-dfx deploy
-```
+Este projeto representa uma solução inovadora para votações descentralizadas no ecossistema Web3, combinando a segurança e confiabilidade do Internet Computer com métodos avançados de votação que garantem privacidade, verificabilidade e transparência. A implementação de árvores Merkle para votação anônima representa um avanço significativo para sistemas de governança em DAOs e outras organizações descentralizadas.
 
-Para que o Canister do frontend consiga gravar os assets (imagens) será necessário liberar as permissões apresentadas abaixo.
-Estes comandos não precisam ser executados a cada deploy, apenas no primeiro deploy ou em caso de reinstalação do Canister. 
-
-```bash
-dfx canister call geradorlp_frontend grant_permission '(record {permission = variant {Prepare}; to_principal = principal "535yc-uxytb-gfk7h-tny7p-vjkoe-i4krp-3qmcl-uqfgr-cpgej-yqtjq-rqe"})'
-```
-
-```bash
-dfx canister call geradorlp_frontend grant_permission '(record {permission = variant {Commit}; to_principal = principal "535yc-uxytb-gfk7h-tny7p-vjkoe-i4krp-3qmcl-uqfgr-cpgej-yqtjq-rqe"})'
-```
-
-Depois disso copie a URL gerada ao termino do deploy e cole no seu navagador.
+A flexibilidade para escolher entre diferentes métodos de votação permite que as organizações adaptem o sistema às suas necessidades específicas, tornando esta solução versátil e aplicável a uma ampla gama de casos de uso no mundo descentralizado.
