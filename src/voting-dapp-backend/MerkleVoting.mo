@@ -44,13 +44,13 @@ module {
     };
 
     public class MerkleVoting() {
-        // Para simplificar, vamos usar hashmaps regulares em vez de TrieMaps
+        
         private var votes : [(Blob, Vote)] = [];
         private var proofs : [((Principal, Nat64), MerkleProof)] = [];
         private var merkleRoots : [(Nat64, Blob)] = [];
         private var votingStats : [(Nat64, MerkleVotingStats)] = [];
 
-        // Implementação simplificada de hash para substituir SHA256
+        
         private func simpleHash(data : Blob) : Blob {
             let bytes = Blob.toArray(data);
             let size = bytes.size();
@@ -121,7 +121,7 @@ module {
             };
             let proposalBlob = Blob.fromArray(Buffer.toArray(proposalBytes));
             
-            // Concatenamos tudo para criar o hash final
+            
             let dataToHash = concatBlobs(proposalBlob, 
                                concatBlobs(voterBlob, 
                                  concatBlobs(salt, valueBlob)));
