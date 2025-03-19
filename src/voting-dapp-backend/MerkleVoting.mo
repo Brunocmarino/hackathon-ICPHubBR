@@ -51,7 +51,6 @@ module {
         private var merkleRoots : [(Nat64, Blob)] = [];
         private var votingStats : [(Nat64, MerkleVotingStats)] = [];
 
-        // Implementação simplificada de hash
         private func simpleHash(data : Blob) : Blob {
             let bytes = Blob.toArray(data);
             let size = bytes.size();
@@ -122,7 +121,7 @@ module {
             };
             let proposalBlob = Blob.fromArray(Buffer.toArray(proposalBytes));
             
-            // Concatenamos tudo para criar o hash final
+            
             let dataToHash = concatBlobs(proposalBlob, 
                                concatBlobs(voterBlob, 
                                  concatBlobs(salt, valueBlob)));
