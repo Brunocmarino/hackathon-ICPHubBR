@@ -8,7 +8,8 @@ import Nat64 "mo:base/Nat64";
 import Option "mo:base/Option";
 import Principal "mo:base/Principal";
 import Time "mo:base/Time";
-
+import Debug "mo:base/Debug";
+import Int "mo:base/Int";
 
 module {
     // Definição de tipos para o sistema de votação baseado em Merkle Tree
@@ -44,13 +45,13 @@ module {
     };
 
     public class MerkleVoting() {
-        // Para simplificar, vamos usar hashmaps regulares em vez de TrieMaps
+        // Usamos arrays simples para armazenar os dados
         private var votes : [(Blob, Vote)] = [];
         private var proofs : [((Principal, Nat64), MerkleProof)] = [];
         private var merkleRoots : [(Nat64, Blob)] = [];
         private var votingStats : [(Nat64, MerkleVotingStats)] = [];
 
-        // Implementação simplificada de hash para substituir SHA256
+        // Implementação simplificada de hash
         private func simpleHash(data : Blob) : Blob {
             let bytes = Blob.toArray(data);
             let size = bytes.size();
@@ -126,6 +127,9 @@ module {
                                concatBlobs(voterBlob, 
                                  concatBlobs(salt, valueBlob)));
             
+            Debug.print("Criando hash para voto - ProposalID: " # debug_show(proposalId) # 
+                       ", Valor: " # debug_show(value));
+            
             simpleHash(dataToHash)
         };
 
@@ -141,11 +145,12 @@ module {
 
         private func putVote(hash : Blob, vote : Vote) {
             votes := Array.append(votes, [(hash, vote)]);
+            Debug.print("Voto armazenado para proposta: " # debug_show(vote.proposalId));
         };
 
         private func getProof(voter : Principal, proposalId : Nat64) : ?MerkleProof {
-            for ((key, proof) in proofs.vals()) {
-                if (Principal.equal(key.0, voter) and key.1 == proposalId) {
+            for (((p, id), proof) in proofs.vals()) {
+                if (Principal.equal(p, voter) and id == proposalId) {
                     return ?proof;
                 };
             };
@@ -154,6 +159,7 @@ module {
 
         private func putProof(voter : Principal, proposalId : Nat64, proof : MerkleProof) {
             proofs := Array.append(proofs, [((voter, proposalId), proof)]);
+            Debug.print("Prova armazenada para votante: " # Principal.toText(voter));
         };
 
         private func getRoot(proposalId : Nat64) : ?Blob {
@@ -166,7 +172,28 @@ module {
         };
 
         private func putRoot(proposalId : Nat64, root : Blob) {
-            merkleRoots := Array.append(merkleRoots, [(proposalId, root)]);
+            // Verificar se já existe uma raiz
+            var exists = false;
+            for ((id, _) in merkleRoots.vals()) {
+                if (id == proposalId) {
+                    exists := true;
+                };
+            };
+            
+            // Se existe, atualizar; senão, adicionar
+            if (exists) {
+                var newRoots : [(Nat64, Blob)] = [];
+                for ((id, r) in merkleRoots.vals()) {
+                    if (id != proposalId) {
+                        newRoots := Array.append(newRoots, [(id, r)]);
+                    };
+                };
+                merkleRoots := Array.append(newRoots, [(proposalId, root)]);
+            } else {
+                merkleRoots := Array.append(merkleRoots, [(proposalId, root)]);
+            };
+            
+            Debug.print("Raiz Merkle atualizada para proposta: " # debug_show(proposalId));
         };
 
         private func getStats(proposalId : Nat64) : ?MerkleVotingStats {
@@ -179,14 +206,32 @@ module {
         };
 
         private func putStats(proposalId : Nat64, stats : MerkleVotingStats) {
-            // Primeiro remover estatísticas existentes para esta proposta
-            var newStats : [(Nat64, MerkleVotingStats)] = [];
-            for ((id, s) in votingStats.vals()) {
-                if (id != proposalId) {
-                    newStats := Array.append(newStats, [(id, s)]);
+            Debug.print("Atualizando estatísticas da proposta " # debug_show(proposalId) # 
+                       ": Total=" # Nat.toText(stats.totalVotes) # 
+                       ", Sim=" # Nat.toText(stats.yesVotes) # 
+                       ", Não=" # Nat.toText(stats.noVotes) # 
+                       ", Abst=" # Nat.toText(stats.abstainVotes));
+            
+            // Verificar se já existem estatísticas
+            var exists = false;
+            for ((id, _) in votingStats.vals()) {
+                if (id == proposalId) {
+                    exists := true;
                 };
             };
-            votingStats := Array.append(newStats, [(proposalId, stats)]);
+            
+            // Se existe, atualizar; senão, adicionar
+            if (exists) {
+                var newStats : [(Nat64, MerkleVotingStats)] = [];
+                for ((id, s) in votingStats.vals()) {
+                    if (id != proposalId) {
+                        newStats := Array.append(newStats, [(id, s)]);
+                    };
+                };
+                votingStats := Array.append(newStats, [(proposalId, stats)]);
+            } else {
+                votingStats := Array.append(votingStats, [(proposalId, stats)]);
+            };
         };
 
         // Função para registrar um voto anônimo
@@ -197,42 +242,79 @@ module {
             weight : Nat,
             salt : Blob
         ) : ?MerkleProof {
+            Debug.print("Registrando voto na proposta " # debug_show(proposalId) # 
+                       " pelo usuário " # Principal.toText(voter) # 
+                       " com valor " # debug_show(value));
+            
+            // Verifica se este voter já votou nesta proposta
+            if (Option.isSome(getProof(voter, proposalId))) {
+                Debug.print("Usuário já votou nesta proposta");
+                return null;
+            };
+            
             let timestamp = Time.now();
             let voteHash = createVoteHash(proposalId, voter, value, salt, timestamp);
             
-            // Verifica se este voter já votou nesta proposta
-            switch (getProof(voter, proposalId)) {
-                case (?_) { return null }; // Já votou
+            // Criar o objeto de voto
+            let vote : Vote = {
+                proposalId;
+                voter = simpleHash(Principal.toBlob(voter)); // Ocultar identidade
+                value;
+                weight;
+                timestamp;
+            };
+            
+            // Armazenar o voto
+            putVote(voteHash, vote);
+            
+            // Atualizar as estatísticas
+            Debug.print("Atualizando estatísticas para o voto");
+            updateStats(proposalId, value, weight);
+            
+            // Verificar as estatísticas atualizadas
+            switch (getStats(proposalId)) {
+                case (?stats) {
+                    Debug.print("Estatísticas após voto: Total=" # Nat.toText(stats.totalVotes) # 
+                              ", Sim=" # Nat.toText(stats.yesVotes));
+                };
                 case (null) {
-                    // Criar o objeto de voto
-                    let vote : Vote = {
-                        proposalId;
-                        voter = simpleHash(Principal.toBlob(voter)); // Ocultar identidade
-                        value;
-                        weight;
-                        timestamp;
-                    };
-                    
-                    // Armazenar o voto
-                    putVote(voteHash, vote);
-                    
-                    // Atualizar as estatísticas
-                    updateStats(proposalId, value, weight);
-                    
-                    // Gerar Merkle Proof
-                    let proof = generateMerkleProof(proposalId, voteHash);
-                    putProof(voter, proposalId, proof);
-                    
-                    return ?proof;
+                    Debug.print("ERRO: Estatísticas não encontradas após atualização!");
                 };
             };
+            
+            // Gerar Merkle Proof (simplificado)
+            let proof = generateMerkleProof(proposalId, voteHash);
+            putProof(voter, proposalId, proof);
+            
+            Debug.print("Voto registrado com sucesso");
+            return ?proof;
+        };
+        
+        // Versão simplificada para gerar uma prova de Merkle
+        private func generateMerkleProof(proposalId : Nat64, voteHash : Blob) : MerkleProof {
+            // Usar o hash do voto como raiz para simplicidade
+            putRoot(proposalId, voteHash);
+            
+            // Retornar uma prova simples
+            {
+                voteHash = voteHash;
+                siblings = [];
+                path = [];
+            }
         };
 
         // Função para atualizar as estatísticas de votação
         private func updateStats(proposalId : Nat64, value : VoteValue, weight : Nat) {
+            Debug.print("Atualizando estatísticas para proposta: " # debug_show(proposalId));
+            
+            // Obter estatísticas atuais ou criar novas
             var stats = switch (getStats(proposalId)) {
-                case (?s) { s };
+                case (?s) { 
+                    Debug.print("Estatísticas existentes encontradas: Total=" # Nat.toText(s.totalVotes));
+                    s 
+                };
                 case (null) { 
+                    Debug.print("Nenhuma estatística encontrada. Criando estatísticas iniciais.");
                     {
                         totalVotes = 0;
                         yesVotes = 0;
@@ -246,154 +328,29 @@ module {
                 };
             };
             
-            stats := {
+            // Atualizar contadores com base no tipo de voto
+            let newStats : MerkleVotingStats = {
                 totalVotes = stats.totalVotes + 1;
-                yesVotes = stats.yesVotes + (if (value == #Yes) 1 else 0);
-                noVotes = stats.noVotes + (if (value == #No) 1 else 0);
-                abstainVotes = stats.abstainVotes + (if (value == #Abstain) 1 else 0);
+                yesVotes = stats.yesVotes + (switch (value) { case (#Yes) 1; case (_) 0 });
+                noVotes = stats.noVotes + (switch (value) { case (#No) 1; case (_) 0 });
+                abstainVotes = stats.abstainVotes + (switch (value) { case (#Abstain) 1; case (_) 0 });
                 totalWeight = stats.totalWeight + weight;
-                yesWeight = stats.yesWeight + (if (value == #Yes) weight else 0);
-                noWeight = stats.noWeight + (if (value == #No) weight else 0);
-                abstainWeight = stats.abstainWeight + (if (value == #Abstain) weight else 0);
+                yesWeight = stats.yesWeight + (switch (value) { case (#Yes) weight; case (_) 0 });
+                noWeight = stats.noWeight + (switch (value) { case (#No) weight; case (_) 0 });
+                abstainWeight = stats.abstainWeight + (switch (value) { case (#Abstain) weight; case (_) 0 });
             };
             
-            putStats(proposalId, stats);
-        };
-
-        // Gera uma prova de Merkle para um voto
-        private func generateMerkleProof(proposalId : Nat64, voteHash : Blob) : MerkleProof {
-            // Obter todos os hashes de votos para esta proposta
-            let voteHashes = Buffer.Buffer<Blob>(10);
-            for ((hash, vote) in votes.vals()) {
-                if (vote.proposalId == proposalId) {
-                    voteHashes.add(hash);
-                };
-            };
+            Debug.print("Estatísticas atualizadas: Total=" # Nat.toText(newStats.totalVotes) # 
+                       ", Sim=" # Nat.toText(newStats.yesVotes) # 
+                       ", Não=" # Nat.toText(newStats.noVotes));
             
-            // Garantir que temos pelo menos um voto
-            if (voteHashes.size() == 0) {
-                return {
-                    voteHash;
-                    siblings = [];
-                    path = [];
-                };
-            };
-            
-            // Encontrar o índice do voto atual
-            var index = 0;
-            label l for (i in Iter.range(0, voteHashes.size() - 1)) {
-                if (Blob.equal(voteHashes.get(i), voteHash)) {
-                    index := i;
-                    break l;
-                };
-            };
-            
-            // Construir a árvore de Merkle
-            let tree = buildMerkleTree(Buffer.toArray(voteHashes));
-            
-            // Calcular a prova
-            let proof = calculateProof(tree, index);
-            
-            // Atualizar a raiz da Merkle tree para esta proposta
-            if (tree.size() > 0) {
-                putRoot(proposalId, tree.get(tree.size() - 1));
-            };
-            
-            return proof;
-        };
-
-        // Constrói uma árvore de Merkle a partir de um array de hashes
-        private func buildMerkleTree(leaves : [Blob]) : Buffer.Buffer<Blob> {
-            let tree = Buffer.Buffer<Blob>(leaves.size() * 2);
-            
-            // Adicionar as folhas
-            for (leaf in leaves.vals()) {
-                tree.add(leaf);
-            };
-            
-            // Construir os níveis acima
-            var levelSize = leaves.size();
-            while (levelSize > 1) {
-                var i = 0;
-                while (i < levelSize / 2) {
-                    let left = tree.get(i * 2);
-                    let right = tree.get(i * 2 + 1);
-                    tree.add(simpleHash(concatBlobs(left, right)));
-                    i += 1;
-                };
-                
-                // Se o número de nós é ímpar, o último nó não tem par
-                if (levelSize % 2 == 1) {
-                    let last = tree.get(levelSize - 1);
-                    tree.add(last);
-                    levelSize := levelSize / 2 + 1;
-                } else {
-                    levelSize := levelSize / 2;
-                };
-            };
-            
-            return tree;
-        };
-
-       // Calcula a prova de Merkle para um índice específico
-        private func calculateProof(tree : Buffer.Buffer<Blob>, index : Nat) : MerkleProof {
-            let siblings = Buffer.Buffer<Blob>(10);
-            let path = Buffer.Buffer<Bool>(10);
-            
-            var currentIndex = index;
-            var levelStart = 0;
-            var levelSize = tree.size() / 2;
-            var continueProcessing = true;
-            
-            while (levelSize > 1 and continueProcessing) {
-                let isRight = currentIndex % 2 == 1;
-                var siblingIndex = 0;
-                var validSibling = true;
-                
-                if (isRight) {
-                    siblingIndex := currentIndex - 1;
-                } else if (currentIndex + 1 < levelSize) {
-                    siblingIndex := currentIndex + 1;
-                } else {
-                    // Nodo sem par no final de um nível
-                    validSibling := false;
-                    continueProcessing := false;
-                };
-                
-                if (validSibling) {
-                    siblings.add(tree.get(levelStart + siblingIndex));
-                    path.add(isRight);
-                    
-                    currentIndex := currentIndex / 2;
-                    levelStart := levelStart + levelSize;
-                    levelSize := levelSize / 2;
-                };
-            };
-            
-            return {
-                voteHash = tree.get(index);
-                siblings = Buffer.toArray(siblings);
-                path = Buffer.toArray(path);
-            };
+            // Salvar as estatísticas atualizadas
+            putStats(proposalId, newStats);
         };
             
-         
-        // Verifica uma prova de Merkle
+        // Verifica uma prova de Merkle (simplificado)
         public func verifyProof(proof : MerkleProof, root : Blob) : Bool {
-            var currentHash = proof.voteHash;
-            
-            for (i in Iter.range(0, proof.siblings.size() - 1)) {
-                let sibling = proof.siblings[i];
-                let isRight = proof.path[i];
-                
-                if (isRight) {
-                    currentHash := simpleHash(concatBlobs(sibling, currentHash));
-                } else {
-                    currentHash := simpleHash(concatBlobs(currentHash, sibling));
-                };
-            };
-            
-            return Blob.equal(currentHash, root);
+            Blob.equal(proof.voteHash, root)
         };
 
         // Obtém a raiz da árvore de Merkle para uma proposta
@@ -403,7 +360,21 @@ module {
 
         // Obtém as estatísticas de votação para uma proposta
         public func getVotingStats(proposalId : Nat64) : ?MerkleVotingStats {
-            getStats(proposalId)
+            Debug.print("Obtendo estatísticas para proposta: " # debug_show(proposalId));
+            let stats = getStats(proposalId);
+            
+            switch (stats) {
+                case (?s) {
+                    Debug.print("Estatísticas encontradas: Total=" # Nat.toText(s.totalVotes) # 
+                              ", Sim=" # Nat.toText(s.yesVotes) # 
+                              ", Não=" # Nat.toText(s.noVotes));
+                };
+                case (null) {
+                    Debug.print("Nenhuma estatística encontrada para a proposta");
+                };
+            };
+            
+            stats
         };
 
         // Obtém a prova de Merkle para um votante específico
@@ -414,6 +385,16 @@ module {
         // Verifica se um votante já votou em uma proposta
         public func hasVoted(voter : Principal, proposalId : Nat64) : Bool {
             Option.isSome(getProof(voter, proposalId))
+        };
+        
+        // Função para debug: Obtém a contagem total de votos armazenados
+        public func getVoteCount() : Nat {
+            votes.size()
+        };
+        
+        // Função para debug: Lista todas as estatísticas
+        public func getAllStats() : [(Nat64, MerkleVotingStats)] {
+            votingStats
         };
     };
 }
