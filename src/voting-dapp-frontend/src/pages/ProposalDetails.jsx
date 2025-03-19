@@ -13,6 +13,74 @@ function ProposalDetails() {
   const [error, setError] = useState('');
   const [principalId, setPrincipalId] = useState(null);
   
+  // Função para carregar estatísticas de votação
+  const loadVotingStats = async (proposalId) => {
+    try {
+      const rawStats = await apiService.getVotingStats(proposalId);
+      console.log("Estatísticas brutas recebidas:", rawStats);
+      
+      // Processar estatísticas - lidar com diferentes formatos possíveis
+      let processedStats;
+      
+      if (Array.isArray(rawStats)) {
+        // Se vier como array, pegar o primeiro elemento
+        processedStats = rawStats[0];
+        console.log("Stats em array, extraindo primeiro elemento:", processedStats);
+      } else if (rawStats && typeof rawStats === 'object') {
+        // Se for um objeto com propriedade 'Ok' (formato de Result)
+        if ('Ok' in rawStats) {
+          processedStats = rawStats.Ok;
+          console.log("Stats em formato Result, extraindo Ok:", processedStats);
+        } else {
+          processedStats = rawStats;
+          console.log("Stats como objeto direto:", processedStats);
+        }
+      } else {
+        console.log("Formato desconhecido, usando padrão");
+        processedStats = null;
+      }
+      
+      // Garantir que todos os campos sejam números e valores padrão
+      const defaultStats = {
+        totalVotes: 0,
+        yesVotes: 0,
+        noVotes: 0,
+        abstainVotes: 0,
+        totalWeight: 0,
+        yesWeight: 0,
+        noWeight: 0,
+        abstainWeight: 0
+      };
+      
+      if (processedStats) {
+        // Converter todos os campos para Number e usar 0 como fallback
+        Object.keys(defaultStats).forEach(key => {
+          defaultStats[key] = Number(processedStats[key] || 0);
+        });
+        
+        console.log("Estatísticas processadas:", defaultStats);
+      }
+      
+      setVotingStats(defaultStats);
+      return defaultStats;
+    } catch (error) {
+      console.error("Erro ao carregar estatísticas:", error);
+      // Fallback para estatísticas vazias
+      const emptyStats = {
+        totalVotes: 0,
+        yesVotes: 0,
+        noVotes: 0,
+        abstainVotes: 0,
+        totalWeight: 0,
+        yesWeight: 0,
+        noWeight: 0,
+        abstainWeight: 0
+      };
+      setVotingStats(emptyStats);
+      return emptyStats;
+    }
+  };
+  
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -38,18 +106,31 @@ function ProposalDetails() {
         setUserVoted(voted);
         
         // Carregar estatísticas da votação
-        const stats = await apiService.getVotingStats(foundProposal.id);
-        setVotingStats(stats);
+        await loadVotingStats(foundProposal.id);
+        
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
-        setError('Falha ao carregar dados da proposta. Tente novamente mais tarde.');
+        setError('Falha ao carregar proposta. Tente novamente mais tarde.');
       } finally {
         setIsLoading(false);
       }
     };
     
     loadData();
-  }, [id]);
+    
+    // Definir um intervalo para atualizar as estatísticas periodicamente
+    const statsInterval = setInterval(() => {
+      if (proposal) {
+        loadVotingStats(proposal.id).then(stats => {
+          console.log("Estatísticas atualizadas pelo intervalo:", stats);
+        });
+      }
+    }, 10000); // Atualizar a cada 10 segundos
+    
+    // Limpar o intervalo quando o componente for desmontado
+    return () => clearInterval(statsInterval);
+    
+  }, [id]); // Dependência apenas no ID da proposta
   
   const isProposalActive = (deadline) => {
     return Number(deadline) > Date.now() * 1000000;

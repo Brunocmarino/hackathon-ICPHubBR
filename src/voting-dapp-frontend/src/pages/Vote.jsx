@@ -1,234 +1,216 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import apiService from '../services/api';
+import authService from '../services/auth';
 
-function Vote() {
+function VotePage() {
   const { id } = useParams();
   const navigate = useNavigate();
   
   const [proposal, setProposal] = useState(null);
-  const [voteValue, setVoteValue] = useState('');
-  const [alreadyVoted, setAlreadyVoted] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voteValue, setVoteValue] = useState('Yes');
+  const [weight] = useState(1); // Sempre fixo em 1
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [proof, setProof] = useState(null);
-  const [showProof, setShowProof] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [alreadyVoted, setAlreadyVoted] = useState(false);
   
   useEffect(() => {
-    loadProposalAndCheckVote();
+    const checkProposal = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Carregar dados da proposta
+        const proposals = await apiService.getProposals();
+        const foundProposal = proposals.find(p => p.id.toString() === id);
+        
+        if (!foundProposal) {
+          setError('Proposta não encontrada');
+          return;
+        }
+        
+        // Verificar se a proposta ainda está ativa
+        const isActive = Number(foundProposal.deadline) > Date.now() * 1000000;
+        if (!isActive) {
+          setError('Esta votação já foi encerrada');
+          return;
+        }
+        
+        // Verificar se o usuário já votou
+        const voted = await apiService.didIVote(foundProposal.id);
+        if (voted) {
+          setAlreadyVoted(true);
+          return;
+        }
+        
+        setProposal(foundProposal);
+      } catch (error) {
+        console.error('Erro ao carregar proposta:', error);
+        setError('Falha ao carregar dados da proposta');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkProposal();
   }, [id]);
   
-  const loadProposalAndCheckVote = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Carregar dados da proposta
-      const proposals = await apiService.getProposals();
-      const foundProposal = proposals.find(p => p.id.toString() === id);
-      
-      if (!foundProposal) {
-        setError('Proposta não encontrada');
-        return;
-      }
-      
-      setProposal(foundProposal);
-      
-      // Verificar se o usuário já votou
-      const voted = await apiService.didIVote(foundProposal.id);
-      setAlreadyVoted(voted);
-      
-      // Verificar se a proposta ainda está ativa
-      const isActive = Number(foundProposal.deadline) > Date.now() * 1000000;
-      if (!isActive) {
-        setError('Esta votação já foi encerrada');
-      }
-    } catch (error) {
-      console.error('Erro ao carregar proposta:', error);
-      setError('Falha ao carregar proposta. Tente novamente mais tarde.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
-  const handleVote = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!voteValue) {
-      setError('Por favor, selecione uma opção de voto');
-      return;
-    }
+    if (!proposal) return;
     
     try {
-      setIsSubmitting(true);
-      setError('');
+      setSubmitting(true);
       
-      // Gerar salt para votação anônima
+      // Gerar salt para o voto
       const salt = await apiService.generateSalt();
       
       // Enviar voto
-      const result = await apiService.vote(proposal.id, voteValue, 1, salt);
+      console.log("Enviando voto:", {
+        proposalId: proposal.id,
+        value: voteValue,
+        weight,
+        salt
+      });
+      
+      const result = await apiService.vote(proposal.id, voteValue, weight, salt);
+      
+      console.log("Resultado do voto:", result);
       
       if (result.success) {
-        setProof(result.proof);
-        setAlreadyVoted(true);
+        // Forçar uma atualização das estatísticas após o voto
+        await apiService.getVotingStats(proposal.id);
+        
+        // Redirecionar para a página da proposta
+        navigate(`/proposal/${id}`, { state: { message: 'Voto registrado com sucesso!' } });
       } else {
-        setError(`Falha ao registrar voto: ${result.message}`);
+        setError(result.message || 'Falha ao registrar o voto');
       }
     } catch (error) {
       console.error('Erro ao enviar voto:', error);
-      setError('Falha ao enviar voto. Tente novamente mais tarde.');
+      setError('Ocorreu um erro ao processar o voto. Tente novamente.');
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
-  };
-  
-  const handleBackToProposal = () => {
-    navigate(`/proposal/${id}`);
   };
   
   if (isLoading) {
     return <div className="loading">Carregando...</div>;
   }
   
-  if (error && !proposal) {
+  if (alreadyVoted) {
     return (
-      <div className="vote-error">
+      <div className="vote-page">
+        <div className="already-voted-container">
+          <h1>Você já votou!</h1>
+          <p>Você já registrou seu voto para esta proposta.</p>
+          <div className="actions">
+            <Link to={`/proposal/${id}`} className="btn-primary">
+              Ver resultados
+            </Link>
+            <Link to="/" className="btn-secondary">
+              Voltar à lista de propostas
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
+  if (error || !proposal) {
+    return (
+      <div className="error-container">
         <h1>Erro</h1>
-        <p>{error}</p>
-        <button onClick={() => navigate('/')} className="btn-secondary">
-          Voltar para a lista de propostas
-        </button>
+        <p>{error || 'Proposta não encontrada'}</p>
+        <Link to="/" className="btn-secondary">Voltar para a lista de propostas</Link>
       </div>
     );
   }
   
   return (
     <div className="vote-page">
-      <h1>Votar em Proposta</h1>
-      
-      {proposal && (
-        <div className="proposal-details">
+      <div className="vote-container">
+        <h1>Votar na Proposta</h1>
+        
+        <div className="proposal-info">
           <h2>{proposal.title}</h2>
           <p className="description">{proposal.description}</p>
-          
-          <div className="proposal-meta">
-            <div>
-              <strong>Criado em:</strong> {apiService.formatDate(proposal.created)}
-            </div>
-            <div>
-              <strong>Encerra em:</strong> {apiService.formatDate(proposal.deadline)}
-            </div>
-            <div>
-              <strong>Tempo restante:</strong> {apiService.getRemainingTime(proposal.deadline)}
-            </div>
+          <div className="meta-info">
+            <span>Encerra em: {apiService.formatDate(proposal.deadline)}</span>
+            <span>Tempo restante: {apiService.getRemainingTime(proposal.deadline)}</span>
           </div>
         </div>
-      )}
-      
-      {error && <div className="error-message">{error}</div>}
-      
-      {alreadyVoted ? (
-        <div className="already-voted">
-          <h2>Você já votou nesta proposta</h2>
-          
-          {proof && (
-            <div className="vote-proof">
-              <h3>Prova do seu voto (Merkle Tree)</h3>
-              <p>Esta prova criptográfica garante que seu voto foi registrado corretamente, mantendo seu anonimato.</p>
-              
-              <button 
-                onClick={() => setShowProof(!showProof)} 
-                className="btn-secondary"
-              >
-                {showProof ? 'Esconder Prova' : 'Mostrar Prova'}
-              </button>
-              
-              {showProof && (
-                <pre className="proof-data">
-                  {JSON.stringify(proof, null, 2)}
-                </pre>
-              )}
-            </div>
-          )}
-          
-          <button onClick={handleBackToProposal} className="btn-primary">
-            Ver Resultados da Votação
-          </button>
-        </div>
-      ) : (
-        <div className="vote-form-container">
-          <h2>Escolha sua opção de voto</h2>
-          <form onSubmit={handleVote} className="vote-form">
+        
+        <form onSubmit={handleSubmit} className="vote-form">
+          <div className="form-group">
+            <label>Seu Voto:</label>
             <div className="vote-options">
               <div className="vote-option">
                 <input
                   type="radio"
-                  id="yes"
+                  id="vote-yes"
                   name="vote"
                   value="Yes"
                   checked={voteValue === 'Yes'}
-                  onChange={() => setVoteValue('Yes')}
-                  disabled={isSubmitting}
+                  onChange={(e) => setVoteValue(e.target.value)}
                 />
-                <label htmlFor="yes">Sim</label>
+                <label htmlFor="vote-yes">Sim</label>
               </div>
               
               <div className="vote-option">
                 <input
                   type="radio"
-                  id="no"
+                  id="vote-no"
                   name="vote"
                   value="No"
                   checked={voteValue === 'No'}
-                  onChange={() => setVoteValue('No')}
-                  disabled={isSubmitting}
+                  onChange={(e) => setVoteValue(e.target.value)}
                 />
-                <label htmlFor="no">Não</label>
+                <label htmlFor="vote-no">Não</label>
               </div>
               
               <div className="vote-option">
                 <input
                   type="radio"
-                  id="abstain"
+                  id="vote-abstain"
                   name="vote"
                   value="Abstain"
                   checked={voteValue === 'Abstain'}
-                  onChange={() => setVoteValue('Abstain')}
-                  disabled={isSubmitting}
+                  onChange={(e) => setVoteValue(e.target.value)}
                 />
-                <label htmlFor="abstain">Abster-se</label>
+                <label htmlFor="vote-abstain">Abster-se</label>
               </div>
             </div>
+          </div>
+          
+          
+          
+          {error && <div className="error-message">{error}</div>}
+          
+          <div className="form-actions">
+            <button 
+              type="submit" 
+              className="btn-primary vote-submit-btn" 
+              disabled={submitting}
+            >
+              {submitting ? 'Processando...' : 'Confirmar Voto'}
+            </button>
             
-            <div className="info-box merkle-info">
-              <h3>Votação Anônima com Merkle Tree</h3>
-              <p>Seu voto será registrado de forma anônima utilizando tecnologia de árvore Merkle.</p>
-              <p>Você receberá uma prova criptográfica que confirma seu voto sem revelar sua identidade.</p>
-            </div>
-            
-            <div className="form-actions">
-              <button 
-                type="button" 
-                onClick={handleBackToProposal} 
-                className="btn-secondary"
-                disabled={isSubmitting}
-              >
-                Cancelar
-              </button>
-              <button 
-                type="submit" 
-                className="btn-primary"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? 'Enviando...' : 'Confirmar Voto'}
-              </button>
-            </div>
-          </form>
+            <Link to={`/proposal/${id}`} className="btn-secondary">
+              Cancelar
+            </Link>
+          </div>
+        </form>
+        
+        <div className="vote-privacy-info">
+          <h3>Privacidade do Voto</h3>
+          <p>Seu voto será registrado de forma anônima usando tecnologia de árvore Merkle.</p>
+          <p>Ninguém poderá ver em que opção você votou, mas você poderá verificar que seu voto foi contado corretamente.</p>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-export default Vote;
+export default VotePage;
