@@ -15,12 +15,11 @@
       "workspace": "voting-dapp-frontend"
     }
   },
-  "defaults": {
-    "build": {
-      "args": "",
-      "packtool": ""
+  "networks": {
+    "ic": {
+      "providers": ["https://ic0.app"],
+      "type": "persistent"
     }
   },
-  "output_env_file": ".env",
   "version": 1
 }
